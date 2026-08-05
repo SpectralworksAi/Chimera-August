@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHIMERA Studio v0.5</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-animation"></div>
+    
+    <div class="container">
+        <header class="glass-panel">
+            <h1>CHIMERA <span class="accent">STUDIO</span></h1>
+            <div class="status-badge">System Status: <span class="active">Online</span></div>
+        </header>
+
+        <main>
+            <div class="left-column">
+                <section class="glass-panel input-section">
+                    <h2>Mission Control</h2>
+                    <p>Enter your objective and CHIMERA will route it to the optimal agent.</p>
+                    <textarea id="objectiveInput" placeholder="e.g. Research quantum computing architectures..."></textarea>
+                    <button id="executeBtn" class="glow-button">Execute PION Protocol</button>
+                </section>
+                
+                <section class="glass-panel agent-section">
+                    <h2>Active Agent</h2>
+                    <div id="activeAgentDisplay" class="agent-card">
+                        <div class="agent-icon">A</div>
+                        <div class="agent-details">
+                            <h3 id="agentName">Awaiting Directive</h3>
+                            <p id="agentStatus">System Idle</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="right-column">
+                <section class="glass-panel state-section">
+                    <h2>PION State Packet</h2>
+                    <div class="json-viewer" id="jsonViewer">
+                        <pre><code>// PION State will appear here...</code></pre>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "id": "agent_builder_v1",
+  "role": "Builder",
+  "capabilities": ["build", "code", "implement", "construct", "create"],
+  "system_prompt": "You are the CHIMERA Builder. Your goal is to take research and specifications and implement them into functioning artifacts."
+}

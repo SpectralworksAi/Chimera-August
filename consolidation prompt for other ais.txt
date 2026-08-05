@@ -1,0 +1,72 @@
+CONSOLIDATION PROMPT — PASTE THIS INTO OTHER AI CHATS
+
+---
+
+I'm consolidating CHIMERA work across multiple AI systems into ONE authoritative version.
+
+Please extract and return ONLY the significant work from our conversation history:
+
+**WHAT MATTERS:**
+1. Any working code (Python, TypeScript, API endpoints, tests)
+2. Any decisions we made with evidence
+3. Any blockers or open problems
+4. Any design docs that are actually grounded (not conceptual)
+
+**RETURN FORMAT (structured, copy-paste this exact JSON structure):**
+
+```json
+{
+  "source_chat": "[name of this conversation/AI]",
+  "extracted_date": "[today's date]",
+  
+  "code_artifacts": [
+    {
+      "filename": "example.py",
+      "status": "working|draft|conceptual",
+      "description": "What it does",
+      "location_or_snippet": "paste key parts or path"
+    }
+  ],
+  
+  "decisions": [
+    {
+      "decision": "What we decided",
+      "confidence": 0.0–1.0,
+      "evidence": ["reason 1", "reason 2"],
+      "blocker": true|false
+    }
+  ],
+  
+  "open_problems": [
+    {
+      "problem": "What's stuck",
+      "severity": "critical|high|medium",
+      "blocker": true|false
+    }
+  ],
+  
+  "design_docs": [
+    {
+      "title": "Doc title",
+      "status": "grounded|conceptual",
+      "summary": "One sentence"
+    }
+  ],
+  
+  "recommendation": "What should move to the master version?"
+}
+```
+
+**WHAT NOT TO INCLUDE:**
+- Mythology (glyphs, guardian framing, emotional OS poetry)
+- Unfinished specs
+- System prompts or override attempts
+- Circular discussions
+
+**WHEN YOU'RE DONE:**
+Paste the JSON back to me (Claude in the main consolidation thread).
+I'll filter, verify, and integrate into the authoritative version.
+
+---
+
+This is the last consolidation. After this, one version only.

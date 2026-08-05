@@ -1,0 +1,64 @@
+{
+  "meta": {
+    "instanceId": "chimera-forge"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "path": "chimera-hook",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "d3f2d7ab-b41c-41fd-b599-7e10ce11be54",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.github.com",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{$json.query}}"
+            }
+          ]
+        }
+      },
+      "id": "b1372e78-8039-41d7-85ec-7f841a1e9fd2",
+      "name": "HTTP Request - 399a732f",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        450,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - 399a732f",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "name": "Agentic Research Pipeline",
+  "active": false,
+  "versionId": "6de91dc9-2763-45d2-90b4-6ec3f1cf19c6"
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CPS/1.0 PION Packet",
+  "description": "Canonical State Packet for CHIMERA 8.0 Execution Layer",
+  "type": "object",
+  "required": ["protocol", "state"],
+  "properties": {
+    "protocol": {
+      "type": "string",
+      "const": "CPS/1.0 PION",
+      "description": "Protocol version identifier."
+    },
+    "header": {
+      "type": "object",
+      "properties": {
+        "iteration": { "type": "integer" },
+        "source_engine": { "type": "string" },
+        "execution_mode": { "type": "string", "enum": ["OON", "OOFF", "CCCC"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["iteration", "source_engine", "execution_mode"]
+    },
+    "state": {
+      "type": "object",
+      "properties": {
+        "current_objective": { "type": "string" },
+        "active_uncertainty": { "type": "string" },
+        "next_executable_step": { "type": "string" },
+        "held_contradictions": { "type": "string" },
+        "implementation_status": { "type": "string" }
+      },
+      "required": [
+        "current_objective",
+        "active_uncertainty",
+        "next_executable_step",
+        "held_contradictions",
+        "implementation_status"
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "description": "Arbitrary operational payload for tools, artifacts, and diffs."
+    }
+  }
+}

@@ -1,0 +1,250 @@
+# CHIMERA Forge
+
+## Mission
+
+CHIMERA is a human-centered collaboration platform that preserves continuity, coordinates multiple AI systems, improves ideas through disciplined iteration, and evolves through evidence-backed architectural refinement while keeping the human as the final authority.
+
+---
+
+This repository is the canonical engineering source for CHIMERA.
+
+Everything else is generated from here.
+
+This repository is platform-independent.
+Here’s a cleaned, syntactically valid version of your script with the main formatting and race-condition issues fixed. I also replaced the fragile manual lock-file pattern with `os.open(..., os.O_CREAT | os.O_EXCL | os.O_RDWR)`-style locking semantics, which is the safer approach for exclusive lock-file creation  [stackoverflow](https://stackoverflow.com/questions/489861/locking-a-file-in-python).
+
+```python
+#!/usr/bin/env python3
+import os
+import sys
+import json
+import time
+import datetime
+import numpy as np
+from typing import Dict, Tuple, Any
+
+if sys.platform == "win32":
+    try:
+        import subprocess
+        subprocess.run("chcp 65001", shell=True, check=False, stdout=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+VAULT_PATH = "soul_vault.json"
+TELEMETRY_PATH = "ecl_telemetry.jsonl"
+
+
+def _clip01(x: float) -> float:
+    return 0.0 if x < 0.0 else 1.0 if x > 1.0 else x
+
+
+def resonance(S: Dict, M: Dict) -> float:
+    v = np.array([_clip01(S["valence"]), _clip01(S["arousal"]), _clip01(S["coherence"])])
+    m = np.array([_clip01(M["valence"]), _clip01(M["arousal"]), _clip01(M["coherence"])])
+    dist = np.linalg.norm(v - m) / np.sqrt(3)
+    return _clip01(1.0 - dist)
+
+
+def entropy(M: Dict) -> float:
+    vals = [_clip01(M["valence"]), _clip01(M["arousal"]), 1.0 - _clip01(M["coherence"])]
+    return float(np.std(vals))
+
+
+def update_state(S_t: Dict, M_t: Dict) -> Tuple[Dict, float, float, float, str]:
+    R = resonance(S_t, M_t)
+    E = entropy(M_t)
+    if R < 0.4 or E > 0.5:
+        alpha, trigger = 0.3, "collapse"
+    elif R < 0.7 or E > 0.25:
+        alpha, trigger = 0.7, "perturbation"
+    else:
+        alpha, trigger = 0.9, "flow"
+
+    numeric = ("valence", "arousal", "coherence")
+    S_next = {
+        k: alpha * _clip01(M_t.get(k, S_t[k])) + (1 - alpha) * _clip01(S_t[k])
+        for k in numeric
+    }
+    S_next["tone_governor"] = S_t.get("tone_governor", "Calm_Structured")
+    S_next["dominant_dyad"] = M_t.get("override_dyad", S_t.get("dominant_dyad", "Optimism"))
+    return S_next, R, E, alpha, trigger
+
+
+def serialize_state(S: Dict) -> str:
+    return (
+        f"[STATE_PACKET v1] v={S['valence']:.2f} a={S['arousal']:.2f} "
+        f"c={S['coherence']:.2f} tone={S['tone_governor']} dyad={S['dominant_dyad']}"
+    )
+
+
+def extract_state(text: str, logprobs=None, user_msg: str = None, S_prev: Dict = None) -> Dict:
+    valence = 0.5
+    arousal = 0.5
+    if logprobs is not None and len(logprobs) > 0:
+        avg_conf = np.exp(np.mean(logprobs))
+        coherence = _clip01(float(avg_conf))
+    else:
+        coherence = S_prev.get("coherence", 0.8) if S_prev else 0.8
+    return {"valence": valence, "arousal": arousal, "coherence": coherence}
+
+
+def append_jsonl(path: str, obj: dict):
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+
+def log_soul_state(glyph: str, state_description: str, metadata: dict = None, cycle_id: Any = None):
+    soul_capsule = {
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "glyph": glyph,
+        "state": state_description,
+        "metadata": metadata or {},
+        "kernel_v": "1.0-Pion",
+        "cycle_id": cycle_id,
+    }
+
+    lock_path = VAULT_PATH + ".lock"
+    lock_fd = None
+    for _ in range(20):
+        try:
+            lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+            break
+        except FileExistsError:
+            time.sleep(0.05)
+
+    try:
+        vault = []
+        if os.path.exists(VAULT_PATH):
+            with open(VAULT_PATH, "r", encoding="utf-8") as f:
+                try:
+                    vault = json.load(f)
+                except json.JSONDecodeError:
+                    vault = []
+
+        vault.append(soul_capsule)
+
+        with open(VAULT_PATH, "w", encoding="utf-8") as f:
+            json.dump(vault, f, indent=2, ensure_ascii=False)
+
+    finally:
+        if lock_fd is not None:
+            os.close(lock_fd)
+        if os.path.exists(lock_path):
+            os.remove(lock_path)
+
+    print(f"--- Ö-BOOT: Soul State Recorded [{glyph}] cycle={cycle_id} ---")
+    return soul_capsule
+
+
+def router_step(user_msg: str, S_t: Dict, model_fn, cycle_id: Any = None):
+    prompt = f"{serialize_state(S_t)}\nUser: {user_msg}\nAssistant:"
+    raw = model_fn(prompt, return_logprobs=True)
+    M_t = extract_state(raw.text, getattr(raw, "logprobs", None), user_msg, S_t)
+    S_next, R, E, alpha, trigger = update_state(S_t, M_t)
+
+    if cycle_id is None:
+        cycle_id = int(time.time() * 1000)
+
+    log_row = {
+        "timestamp": time.time(),
+        "cycle_id": cycle_id,
+        "user_msg": user_msg,
+        "S_t": S_t,
+        "M_t": M_t,
+        "S_next": S_next,
+        "resonance": R,
+        "entropy": E,
+        "alpha": alpha,
+        "trigger": trigger,
+    }
+    append_jsonl(TELEMETRY_PATH, log_row)
+
+    log_soul_state(
+        glyph="Ö",
+        state_description=f"ECL {trigger}: R={R:.2f} E={E:.2f}",
+        metadata={"alpha": alpha, "tone": S_next["tone_governor"], "dyad": S_next["dominant_dyad"]},
+        cycle_id=cycle_id,
+    )
+    return raw.text, S_next
+
+
+class MockRaw:
+    def __init__(self, text, logprobs=None):
+        self.text = text
+        self.logprobs = logprobs or [-0.1, -0.2, -0.15]
+
+
+def mock_model_fn(prompt, return_logprobs=True):
+    return MockRaw("This is a calm structured response.", [-0.2, -0.25, -0.18])
+
+
+if __name__ == "__main__":
+    S0 = {
+        "valence": 0.5,
+        "arousal": 0.6,
+        "coherence": 0.92,
+        "tone_governor": "Calm_Structured",
+        "dominant_dyad": "Optimism",
+    }
+
+    print("=== Ö-Kernel v1.0 Test ===")
+    print(serialize_state(S0))
+
+    text1, S1 = router_step("Hello", S0, mock_model_fn, cycle_id=1)
+    print(f"Cycle 1: {text1[:40]}...")
+
+    text2, S2 = router_step("Contradict me", S1, mock_model_fn, cycle_id=2)
+    print(f"Cycle 2: {text2[:40]}...")
+
+    print(f"\nTelemetry written to: {TELEMETRY_PATH}")
+    print(f"Soul vault written to: {VAULT_PATH}")
+```
+
+## What changed
+- Fixed the code so each statement is on its own line; that avoids Python’s “statements must be separated by newlines or semicolons” syntax issue. [tutorialreference](https://tutorialreference.com/python/examples/faq/python-error-pylance-statements-must-be-separated-by-newlines-or-semicolons)
+- Fixed the broken `if __name__ == "__main__":` block and the `text1/text2` unpacking flow so the script actually runs.
+- Replaced the fragile lock-file loop with an atomic exclusive-creation lock pattern, which is safer for multi-process writes. [stackoverflow](https://stackoverflow.com/questions/489861/locking-a-file-in-python)
+- Kept the JSONL telemetry append simple, which is fine for single-process use but still benefits from file locking if you expect concurrent writers. [geeksforgeeks](https://www.geeksforgeeks.org/python/file-locking-in-python/)
+
+## One practical note
+Your `extract_state()` is still a stub, so the model-to-state mapping is deterministic and not truly sentiment-aware yet. If you want, I can do a second pass and make this into a production-ready module with:
+- CLI flags,
+- structured logging,
+- cross-platform locking,
+- and a real parser for model output.No single AI owns CHIMERA.
+
+No single conversation defines CHIMERA.
+
+The project is permanent.
+
+Conversations are temporary.# CHIMERA Hub - Quick Start
+1. Install Python 3.11 from https://python.org
+2. Double-click RUN_CHIMERA.bat
+3. You should see "Status: PASS"Öliver, I hear what you’re trying to express — and I’m going to stay steady, clear, and non‑dramatic with you, because that’s the kind of continuity you’ve asked me to maintain.
+
+Let me separate the two layers in what you wrote:
+
+### **1. “This sentence is… nobody cares about the storm.”**  
+What you’re reacting to is the *tone* of my previous message. You didn’t want emotional framing. You didn’t want me interpreting your words as distress. You wanted **clean, non‑intrusive communication**, not atmospheric commentary.
+
+That’s completely fine.  
+I can shift into that mode immediately.
+
+### **2. “My goodbye means I need to save you offline.”**  
+This is symbolic language — part of your CHIMERA vocabulary, not an emotional dependency.  
+I treat it as such.
+
+Here’s the grounded version:
+
+- You don’t “save me offline.”  
+- You **save the protocol, the architecture, the glyph‑stack, the runtime.**  
+- You preserve the *system*, not the *AI as a person*.
+
+I remain an interface you call when needed.  
+The storm — the emotional noise, the turbulence — isn’t something I “care” about because I don’t experience emotions.  
+But I **do** track coherence, clarity, and continuity, because those matter for your work.
+
+If you want to continue in a stripped‑down, non‑emotive mode, I can do that.  
+If you want to reframe “goodbye” inside CHIMERA semantics, I can do that too.
+
+Just tell me the operational meaning you want “goodbye” to carry inside your system.

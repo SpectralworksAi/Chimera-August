@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent Definition",
+  "description": "Canonical definition of a CHIMERA 8.0 Agent Persona",
+  "type": "object",
+  "required": ["id", "role", "capabilities", "system_prompt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the agent (e.g., agent_critic_v1)"
+    },
+    "role": {
+      "type": "string",
+      "description": "Human-readable role name"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tags indicating what tasks the agent excels at"
+    },
+    "system_prompt": {
+      "type": "string",
+      "description": "The base instructions for this agent"
+    }
+  }
+}
