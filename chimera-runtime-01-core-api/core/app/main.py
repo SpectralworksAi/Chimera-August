@@ -6,7 +6,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 # The repository currently keeps providers in a sibling runtime module.
-PROVIDERS_ROOT = Path(__file__).resolve().parents[5] / "chimera-runtime-02-providers-storage"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+PROVIDERS_ROOT = REPO_ROOT / "chimera-runtime-02-providers-storage"
 if str(PROVIDERS_ROOT) not in sys.path:
     sys.path.insert(0, str(PROVIDERS_ROOT))
 
@@ -32,6 +33,10 @@ def generate(request: GenerateRequest):
 
     try:
         provider = OpenAIProvider(model=request.model)
-        return {"provider": "openai", "model": provider.model, "output": provider.generate(request.prompt)}
+        return {
+            "provider": "openai",
+            "model": provider.model,
+            "output": provider.generate(request.prompt),
+        }
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"OpenAI provider error: {exc}") from exc
